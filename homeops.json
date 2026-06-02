@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "infrastructureRepo": ".",
+  "terraform": {
+    "targetsRoot": "terraform",
+    "planArtifactDir": ".homeops/plans"
+  },
+  "ansible": {
+    "playbooksRoot": "ansible",
+    "wslDistro": "Ubuntu",
+    "inventoryPath": "ansible/inventory"
+  },
+  "audit": {
+    "logDir": ".homeops/audit"
+  }
+}
