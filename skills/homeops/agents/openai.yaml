@@ -1,0 +1,4 @@
+interface:
+  display_name: "homeops"
+  short_description: "Use the local homeops infra CLI safely"
+  default_prompt: "Use $homeops to inspect and operate my homelab infrastructure safely."
