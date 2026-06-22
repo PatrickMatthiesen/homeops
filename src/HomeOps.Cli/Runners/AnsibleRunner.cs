@@ -10,6 +10,7 @@ public sealed class AnsibleRunner(AppServices services)
 
     public Task<CommandResult> CheckAsync(string playbook, string? limit)
     {
+        limit ??= services.Paths.ResolveAnsibleDefaultLimit(playbook);
         var args = new List<string> { "--check" };
         if (!string.IsNullOrWhiteSpace(limit))
         {
@@ -22,6 +23,7 @@ public sealed class AnsibleRunner(AppServices services)
 
     public Task<CommandResult> ApplyAsync(string playbook, string? limit, bool yes)
     {
+        limit ??= services.Paths.ResolveAnsibleDefaultLimit(playbook);
         var args = new List<string>();
         if (!string.IsNullOrWhiteSpace(limit))
         {

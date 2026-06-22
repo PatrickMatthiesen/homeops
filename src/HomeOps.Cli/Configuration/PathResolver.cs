@@ -9,9 +9,37 @@ public sealed class PathResolver(HomeOpsConfig config)
     public string AuditLogDir => Path.GetFullPath(Path.Combine(RepoRoot, config.Audit.LogDir));
     public string InventoryPath => Path.GetFullPath(Path.Combine(RepoRoot, config.Ansible.InventoryPath));
 
-    public string ResolveTerraformTarget(string target) => ResolveUnderRoot(TerraformRoot, target, "Terraform target");
+    public string ResolveTerraformTarget(string target)
+    {
+        var requestedPath = config.Terraform.Targets.TryGetValue(target, out var configuredTarget) &&
+            !string.IsNullOrWhiteSpace(configuredTarget.Path)
+            ? configuredTarget.Path
+            : Path.Combine(config.Terraform.TargetsRoot, target);
 
-    public string ResolveAnsiblePlaybook(string playbook) => ResolveUnderRoot(AnsibleRoot, playbook, "Ansible playbook");
+        return ResolveUnderRoot(RepoRoot, requestedPath, "Terraform target");
+    }
+
+    public string ResolveAnsiblePlaybook(string playbook)
+    {
+        var requestedPath = ResolveAnsiblePlaybookPath(playbook);
+        return ResolveUnderRoot(RepoRoot, requestedPath, "Ansible playbook");
+    }
+
+    public string ResolveAnsiblePlaybookPath(string playbook)
+    {
+        return config.Ansible.Playbooks.TryGetValue(playbook, out var configuredPlaybook) &&
+            !string.IsNullOrWhiteSpace(configuredPlaybook.Path)
+            ? configuredPlaybook.Path
+            : Path.Combine(config.Ansible.PlaybooksRoot, playbook);
+    }
+
+    public string? ResolveAnsibleDefaultLimit(string playbook)
+    {
+        return config.Ansible.Playbooks.TryGetValue(playbook, out var configuredPlaybook) &&
+            !string.IsNullOrWhiteSpace(configuredPlaybook.DefaultLimit)
+            ? configuredPlaybook.DefaultLimit
+            : null;
+    }
 
     public static string ResolveUnderRoot(string root, string requestedPath, string description)
     {

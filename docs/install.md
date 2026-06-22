@@ -20,18 +20,22 @@ dotnet publish src/HomeOps.Cli -c Release -r win-x64 --self-contained false /p:P
 
 ## Configuration
 
-`homeops.json` is intentionally safe to commit. It contains paths and runner
-settings only:
+`homeops.json`, `homeops.yaml`, and `homeops.yml` are intentionally safe to
+commit. They contain paths, catalog metadata, and runner settings only:
 
 - `infrastructureRepo`: root of the infrastructure repository.
 - `terraform.targetsRoot`: directory containing Terraform targets.
 - `terraform.planArtifactDir`: controlled Terraform plan output directory.
+- `terraform.targets`: optional named targets with `path`, `description`, and
+  `host`.
 - `ansible.playbooksRoot`: directory containing playbooks.
 - `ansible.wslDistro`: WSL distro used to run Ansible.
-- `ansible.inventoryPath`: Ansible inventory path.
+- `ansible.inventoryPath` or `ansible.inventory`: Ansible inventory path.
+- `ansible.playbooks`: optional named playbooks with `path`, `description`, and
+  `default_limit`.
 - `audit.logDir`: redacted audit-record directory.
 
-Do not put secrets in `homeops.json`.
+Do not put secrets in the homeops config file.
 
 ## Credentials
 

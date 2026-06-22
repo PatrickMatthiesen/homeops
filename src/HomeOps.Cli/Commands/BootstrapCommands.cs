@@ -11,8 +11,8 @@ public sealed class LoginCommand : Command<CommonSettings>
     {
         var store = new WindowsCredentialStore();
         store.Set(CredentialKeys.ProxmoxEndpoint, Prompt("Proxmox endpoint"));
-        store.Set(CredentialKeys.ProxmoxInspectToken, Secret("Proxmox inspect token"));
-        store.Set(CredentialKeys.ProxmoxTerraformToken, Secret("Proxmox Terraform token"));
+        store.Set(CredentialKeys.ProxmoxInspectToken, Secret("Proxmox read-only API token (user@realm!tokenid=secret)"));
+        store.Set(CredentialKeys.ProxmoxTerraformToken, Secret("Proxmox Terraform API token (user@realm!tokenid=secret)"));
         store.Set(CredentialKeys.AnsibleVaultPassword, Secret("Ansible vault password"));
         store.Set(CredentialKeys.SshDeployKeyPath, Prompt("SSH deploy key path"));
         var passphrase = Secret("SSH deploy key passphrase (empty allowed)", allowEmpty: true);

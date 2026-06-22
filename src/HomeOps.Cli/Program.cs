@@ -5,7 +5,7 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.SetApplicationName("homeops");
-    config.SetApplicationVersion("0.1.0");
+    config.SetApplicationVersion("0.1.1");
 
     config.AddCommand<LoginCommand>("login");
     config.AddCommand<LogoutCommand>("logout");
