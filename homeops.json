@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "infrastructureRepo": ".",
+  "proxmox": {
+    "features": {
+      "cloudImageDownloads": false
+    }
+  },
   "terraform": {
     "targetsRoot": "terraform",
     "planArtifactDir": ".homeops/plans"

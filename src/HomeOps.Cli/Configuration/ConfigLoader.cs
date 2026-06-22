@@ -115,6 +115,8 @@ public static class ConfigLoader
             "infrastructure_repo" or "infrastructure-repo" => "infrastructureRepo",
             "targets_root" or "targets-root" => "targetsRoot",
             "plan_artifact_dir" or "plan-artifact-dir" => "planArtifactDir",
+            "image_storage" or "image-storage" => "imageStorage",
+            "cloud_image_downloads" or "cloud-image-downloads" => "cloudImageDownloads",
             "playbooks_root" or "playbooks-root" => "playbooksRoot",
             "wsl_distro" or "wsl-distro" => "wslDistro",
             "inventory" or "inventory_path" or "inventory-path" => "inventoryPath",

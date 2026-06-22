@@ -23,6 +23,12 @@ Run this before authenticated operations or when the user reports setup trouble:
 homeops doctor
 ```
 
+This also performs read-only Proxmox access checks for every endpoint used by
+the inspection commands and reads the Terraform token's effective permissions.
+It does not run a Terraform plan or make a Proxmox mutation. Cloud-image
+permissions are checked only when `proxmox.features.cloudImageDownloads` is
+enabled.
+
 Use the result to report:
 
 - Whether Terraform is available on Windows.
@@ -41,6 +47,8 @@ homeops proxmox status
 homeops proxmox nodes
 homeops proxmox vms
 homeops proxmox storage
+homeops proxmox storage-content
+homeops proxmox storage-content --content iso
 ```
 
 Summarize the JSON result for the user. Do not fall back to direct Proxmox API calls unless `homeops` is broken and the user explicitly approves another approach.

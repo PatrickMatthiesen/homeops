@@ -22,6 +22,13 @@ public sealed class ProxmoxConfig
 {
     public string Endpoint { get; set; } = string.Empty;
     public string Node { get; set; } = string.Empty;
+    public string ImageStorage { get; set; } = string.Empty;
+    public ProxmoxFeatureConfig Features { get; set; } = new();
+}
+
+public sealed class ProxmoxFeatureConfig
+{
+    public bool CloudImageDownloads { get; set; }
 }
 
 public sealed class TerraformConfig

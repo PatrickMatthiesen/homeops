@@ -24,6 +24,10 @@ dotnet publish src/HomeOps.Cli -c Release -r win-x64 --self-contained false /p:P
 commit. They contain paths, catalog metadata, and runner settings only:
 
 - `infrastructureRepo`: root of the infrastructure repository.
+- `proxmox.features.cloudImageDownloads`: opt-in check for Proxmox URL-download
+  permissions; defaults to `false`.
+- `proxmox.node`: target node when cloud-image downloads are enabled.
+- `proxmox.imageStorage`: image storage when cloud-image downloads are enabled.
 - `terraform.targetsRoot`: directory containing Terraform targets.
 - `terraform.planArtifactDir`: controlled Terraform plan output directory.
 - `terraform.targets`: optional named targets with `path`, `description`, and

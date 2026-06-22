@@ -18,6 +18,9 @@ repo:
 proxmox:
   endpoint: "https://192.0.2.10:8006/"
   node: example-node
+  image_storage: image-store
+  features:
+    cloud_image_downloads: true
 
 terraform:
   targets:
@@ -50,6 +53,8 @@ agent_workflow:
 
         Assert.Equal("HomeAnsible", config.Repo.Name);
         Assert.Equal("https://192.0.2.10:8006/", config.Proxmox.Endpoint);
+        Assert.Equal("image-store", config.Proxmox.ImageStorage);
+        Assert.True(config.Proxmox.Features.CloudImageDownloads);
         Assert.Equal("terraform/sample-app", config.Terraform.Targets["sample-app"].Path);
         Assert.Equal("inventory/production/hosts.ini", config.Ansible.InventoryPath);
         Assert.Equal("playbooks/initial_setup.yml", config.Ansible.Playbooks["initial_setup"].Path);

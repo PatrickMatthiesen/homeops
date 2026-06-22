@@ -1,5 +1,6 @@
 using HomeOps.Cli.Infrastructure;
 using HomeOps.Cli.Output;
+using HomeOps.Cli.Proxmox;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -62,9 +63,16 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
         var terraform = await services.Processes.RunAsync(new("terraform", ["version"], services.Paths.RepoRoot, new Dictionary<string, string?>()));
         var wsl = await services.Processes.RunAsync(new("wsl.exe", ["-l", "-v"], services.Paths.RepoRoot, new Dictionary<string, string?>()));
         var metadata = services.Credentials.ListMetadata(CredentialKeys.Required.Append(CredentialKeys.SshDeployKeyPassphrase));
+        var proxmoxClient = new ProxmoxClient(services.Credentials);
+        var proxmoxInspection = await proxmoxClient.CheckInspectionAccessAsync();
+        var proxmoxTerraform = await proxmoxClient.CheckTerraformAccessAsync(
+            services.Config.Proxmox.Node,
+            services.Config.Proxmox.ImageStorage,
+            services.Config.Proxmox.Features.CloudImageDownloads);
+        var proxmoxReady = proxmoxInspection.AllAllowed && proxmoxTerraform.AllAllowed;
         OutputWriter.Write(new
         {
-            status = "ok",
+            status = proxmoxReady ? "ok" : "error",
             config = new
             {
                 repo = services.Paths.RepoRoot,
@@ -78,9 +86,14 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
                 wsl = new { available = wsl.ExitCode == 0, output = CleanToolOutput(wsl.Stdout), error = CleanToolOutput(wsl.Stderr) },
                 ansible = new { available = false, note = "Ansible runs through the configured WSL distro; no distro is installed until wsl -l -v succeeds." }
             },
-            credentials = metadata
+            credentials = metadata,
+            proxmox = new
+            {
+                inspection = proxmoxInspection,
+                terraform = proxmoxTerraform
+            }
         }, settings.Text);
-        return 0;
+        return proxmoxReady ? 0 : 1;
     }
 
     private static string CleanToolOutput(string value) => value.Replace("\0", string.Empty).Trim();

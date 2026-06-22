@@ -5,7 +5,7 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.SetApplicationName("homeops");
-    config.SetApplicationVersion("0.1.1");
+    config.SetApplicationVersion("0.1.2");
 
     config.AddCommand<LoginCommand>("login");
     config.AddCommand<LogoutCommand>("logout");
@@ -17,6 +17,7 @@ app.Configure(config =>
         proxmox.AddCommand<ProxmoxNodesCommand>("nodes");
         proxmox.AddCommand<ProxmoxVmsCommand>("vms");
         proxmox.AddCommand<ProxmoxStorageCommand>("storage");
+        proxmox.AddCommand<ProxmoxStorageContentCommand>("storage-content");
     });
 
     config.AddBranch("terraform", terraform =>
