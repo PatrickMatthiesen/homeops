@@ -80,6 +80,7 @@ Use Ansible through `homeops`, which runs `ansible-playbook` in the configured W
 homeops ansible syntax <playbook>
 homeops ansible check <playbook> --limit <host-or-group>
 homeops ansible apply <playbook> --limit <host-or-group> --yes
+homeops ansible vault edit
 ```
 
 Guidelines:
@@ -88,6 +89,8 @@ Guidelines:
 - Use `--limit` for targeted fixes unless the user explicitly wants a broad run.
 - If WSL or Ansible is unavailable, use `homeops doctor` and report the setup gap.
 - Do not run raw `ansible-playbook` for credential-backed playbooks.
+- Use `homeops ansible vault edit` for interactive edits to the configured
+  encrypted vault; do not edit it directly on a `/mnt/*` path from WSL.
 
 ## Reporting
 

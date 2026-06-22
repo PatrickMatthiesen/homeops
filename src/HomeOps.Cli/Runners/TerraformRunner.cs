@@ -40,7 +40,7 @@ public sealed class TerraformRunner(AppServices services)
             args.Add($"-out={Path.Combine(services.Paths.PlanArtifactDir, planId + ".tfplan")}");
         }
 
-        var result = await RunAsync(args, "terraform.plan", target, "normal", "none");
+        var result = await RunAsync(args, "terraform.plan", target, "normal", "none", includeSshPublicKey: true);
         if (planId is not null)
         {
             result = result with { Subject = $"{target} planId={planId}" };
@@ -79,7 +79,7 @@ public sealed class TerraformRunner(AppServices services)
             args.Add("-auto-approve");
         }
 
-        var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment()));
+        var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment(includeSshPublicKey: true)));
         var redactedStdout = redactor.Redact(process.Stdout);
         var risk = RiskDetector.TerraformApply(redactedStdout, git.IsDirty, hasPlanArtifact);
         var result = RunnerHelpers.ToCommandResult(process, redactor, "terraform.apply", target, risk, null, !yes);
@@ -87,28 +87,82 @@ public sealed class TerraformRunner(AppServices services)
         return result with { AuditEventId = auditId };
     }
 
-    private async Task<CommandResult> RunAsync(IReadOnlyList<string> args, string category, string subject, string risk, string confirmationMode)
+    private async Task<CommandResult> RunAsync(
+        IReadOnlyList<string> args,
+        string category,
+        string subject,
+        string risk,
+        string confirmationMode,
+        bool includeSshPublicKey = false)
     {
         var git = await services.Git.SnapshotAsync(services.Paths.RepoRoot);
         var redactor = RunnerHelpers.BuildRedactor(services.Credentials);
-        var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment()));
+        var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment(includeSshPublicKey)));
         var result = RunnerHelpers.ToCommandResult(process, redactor, category, subject, risk, null);
         var auditId = services.Audit.Write(RunnerHelpers.CreateAudit(category, subject, services.Paths.RepoRoot, git, result.ExitCode, risk, confirmationMode, result.Summary));
         return result with { AuditEventId = auditId };
     }
 
-    private Dictionary<string, string?> TerraformEnvironment()
+    private Dictionary<string, string?> TerraformEnvironment(bool includeSshPublicKey)
     {
         var endpoint = services.Credentials.Get(CredentialKeys.ProxmoxEndpoint);
         var token = services.Credentials.Get(CredentialKeys.ProxmoxTerraformToken);
-        return new Dictionary<string, string?>
+        var environment = new Dictionary<string, string?>
         {
             ["PROXMOX_VE_ENDPOINT"] = endpoint,
             ["PROXMOX_VE_API_TOKEN"] = token,
             ["PM_API_URL"] = endpoint,
             ["PM_API_TOKEN_SECRET"] = token
         };
+
+        if (includeSshPublicKey)
+        {
+            environment["TF_VAR_ssh_public_key"] = ReadSshPublicKey();
+        }
+
+        return environment;
     }
+
+    private string ReadSshPublicKey()
+    {
+        var configuredPath = services.Credentials.Get(CredentialKeys.SshDeployKeyPath);
+        if (string.IsNullOrWhiteSpace(configuredPath))
+        {
+            throw new InvalidOperationException("SSH deploy key path is not configured. Run homeops login.");
+        }
+
+        var expandedPath = Environment.ExpandEnvironmentVariables(configuredPath);
+        var publicKeyPath = expandedPath.EndsWith(".pub", StringComparison.OrdinalIgnoreCase)
+            ? expandedPath
+            : expandedPath + ".pub";
+        if (!File.Exists(publicKeyPath))
+        {
+            throw new InvalidOperationException("SSH deploy public key file was not found next to the configured deploy key.");
+        }
+
+        var publicKey = File.ReadAllText(publicKeyPath).Trim();
+        var fields = publicKey.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (fields.Length < 2 || !IsPublicKeyType(fields[0]))
+        {
+            throw new InvalidOperationException("SSH deploy public key file does not contain an OpenSSH public key.");
+        }
+
+        try
+        {
+            _ = Convert.FromBase64String(fields[1]);
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("SSH deploy public key file does not contain valid OpenSSH public key data.");
+        }
+
+        return publicKey;
+    }
+
+    private static bool IsPublicKeyType(string value) =>
+        value.StartsWith("ssh-", StringComparison.Ordinal) ||
+        value.StartsWith("ecdsa-", StringComparison.Ordinal) ||
+        value.StartsWith("sk-", StringComparison.Ordinal);
 
     private string ResolvePlanArtifact(string planId)
     {

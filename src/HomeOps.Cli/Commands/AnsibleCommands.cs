@@ -41,3 +41,13 @@ public sealed class AnsibleApplyCommand : AsyncCommand<AnsibleApplySettings>
         return result.ExitCode;
     }
 }
+
+public sealed class AnsibleVaultEditCommand : AsyncCommand<CommonSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, CommonSettings settings)
+    {
+        var result = await new AnsibleVaultEditor(AppServices.Create()).EditAsync();
+        OutputWriter.Write(result, settings.Text);
+        return result.ExitCode;
+    }
+}

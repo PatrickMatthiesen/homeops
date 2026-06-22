@@ -29,7 +29,7 @@ public sealed class AnsibleRunnerTests
 
         var args = runner.BuildWslArguments(Path.Combine(root, "ansible", "site.yml"), Path.Combine(root, "vault.txt"), ["--check"]);
 
-        Assert.Equal(["-d", "Ubuntu", "ansible-playbook", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/ansible/site.yml", "-i", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/ansible/inventory.ini", "--vault-password-file", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/vault.txt", "--check"], args);
+        Assert.Equal(["-d", "Ubuntu", "--", "bash", "-lc", "set -e; export ANSIBLE_LOCAL_TEMP=/tmp/homeops-ansible; vault=\\$(mktemp /tmp/homeops-vault.XXXXXX); trap 'rm -f \"\\$vault\"' EXIT; cp \"\\$1\" \"\\$vault\"; chmod 600 \"\\$vault\"; shift; ansible-playbook \"\\$@\" --vault-password-file \"\\$vault\"", "homeops", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/vault.txt", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/ansible/site.yml", "-i", "/mnt/" + char.ToLowerInvariant(root[0]) + root[2..].Replace('\\', '/') + "/ansible/inventory.ini", "--check"], args);
     }
 }
 
@@ -47,4 +47,7 @@ internal sealed class FakeProcessRunner : IProcessRunner
     {
         return Task.FromResult(new ProcessResult(0, string.Empty, string.Empty));
     }
+
+    public Task<int> RunInteractiveAsync(InteractiveProcessRequest request, CancellationToken cancellationToken = default) =>
+        Task.FromResult(0);
 }

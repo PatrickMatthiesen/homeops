@@ -8,6 +8,7 @@ public sealed class PathResolver(HomeOpsConfig config)
     public string PlanArtifactDir => Path.GetFullPath(Path.Combine(RepoRoot, config.Terraform.PlanArtifactDir));
     public string AuditLogDir => Path.GetFullPath(Path.Combine(RepoRoot, config.Audit.LogDir));
     public string InventoryPath => Path.GetFullPath(Path.Combine(RepoRoot, config.Ansible.InventoryPath));
+    public string VaultPath => ResolveUnderRoot(RepoRoot, config.Ansible.VaultPath, "Ansible vault");
 
     public string ResolveTerraformTarget(string target)
     {

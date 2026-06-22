@@ -33,6 +33,10 @@ app.Configure(config =>
         ansible.AddCommand<AnsibleSyntaxCommand>("syntax");
         ansible.AddCommand<AnsibleCheckCommand>("check");
         ansible.AddCommand<AnsibleApplyCommand>("apply");
+        ansible.AddBranch("vault", vault =>
+        {
+            vault.AddCommand<AnsibleVaultEditCommand>("edit");
+        });
     });
 });
 

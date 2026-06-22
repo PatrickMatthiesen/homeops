@@ -50,6 +50,7 @@ public sealed class AnsibleConfig
     public string PlaybooksRoot { get; set; } = "ansible";
     public string WslDistro { get; set; } = "Ubuntu";
     public string InventoryPath { get; set; } = "ansible/inventory";
+    public string VaultPath { get; set; } = "inventory/production/group_vars/all/vault.yml";
     public Dictionary<string, AnsiblePlaybookConfig> Playbooks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

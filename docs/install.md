@@ -35,6 +35,8 @@ commit. They contain paths, catalog metadata, and runner settings only:
 - `ansible.playbooksRoot`: directory containing playbooks.
 - `ansible.wslDistro`: WSL distro used to run Ansible.
 - `ansible.inventoryPath` or `ansible.inventory`: Ansible inventory path.
+- `ansible.vaultPath`: encrypted vault edited by `homeops ansible vault edit`;
+  defaults to `inventory/production/group_vars/all/vault.yml`.
 - `ansible.playbooks`: optional named playbooks with `path`, `description`, and
   `default_limit`.
 - `audit.logDir`: redacted audit-record directory.
@@ -78,12 +80,25 @@ wsl.exe --install Ubuntu
 Install Ansible inside the configured distro, then verify:
 
 ```powershell
+wsl.exe -d Ubuntu -- bash -lc "sudo apt-get update && sudo apt-get install -y ansible"
 wsl.exe -d Ubuntu ansible --version
 homeops doctor
 ```
 
 When running Ansible, `homeops` writes the vault password to a temporary file,
 passes that file only to the child process, and deletes it in cleanup.
+
+Edit the configured encrypted vault safely across the Windows/WSL boundary:
+
+```powershell
+homeops ansible vault edit
+```
+
+The command stages only encrypted input and the brokered password in a
+mode-0600 WSL-native temporary directory, runs the interactive editor, verifies
+the result is still Ansible Vault encrypted, and atomically replaces the
+Windows file. Vault content and passwords are never written to command output
+or audit logs.
 
 ## Agent Usage
 

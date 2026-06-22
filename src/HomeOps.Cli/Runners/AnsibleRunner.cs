@@ -66,12 +66,15 @@ public sealed class AnsibleRunner(AppServices services)
         {
             "-d",
             services.Config.Ansible.WslDistro,
-            "ansible-playbook",
+            "--",
+            "bash",
+            "-lc",
+            "set -e; export ANSIBLE_LOCAL_TEMP=/tmp/homeops-ansible; vault=\\$(mktemp /tmp/homeops-vault.XXXXXX); trap 'rm -f \"\\$vault\"' EXIT; cp \"\\$1\" \"\\$vault\"; chmod 600 \"\\$vault\"; shift; ansible-playbook \"\\$@\" --vault-password-file \"\\$vault\"",
+            "homeops",
+            ToWslPath(vaultPasswordFile),
             ToWslPath(playbookPath),
             "-i",
-            ToWslPath(services.Paths.InventoryPath),
-            "--vault-password-file",
-            ToWslPath(vaultPasswordFile)
+            ToWslPath(services.Paths.InventoryPath)
         };
         args.AddRange(modeArgs);
         return args;

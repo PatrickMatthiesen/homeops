@@ -1,3 +1,4 @@
+using HomeOps.Cli.Execution;
 using HomeOps.Cli.Infrastructure;
 using HomeOps.Cli.Output;
 using HomeOps.Cli.Proxmox;
@@ -62,6 +63,8 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
         var services = AppServices.Create();
         var terraform = await services.Processes.RunAsync(new("terraform", ["version"], services.Paths.RepoRoot, new Dictionary<string, string?>()));
         var wsl = await services.Processes.RunAsync(new("wsl.exe", ["-l", "-v"], services.Paths.RepoRoot, new Dictionary<string, string?>()));
+        var ansible = await services.Processes.RunAsync(BuildAnsibleProbe(services.Config.Ansible.WslDistro, services.Paths.RepoRoot));
+        var ansibleStatus = BuildAnsibleStatus(ansible, services.Config.Ansible.WslDistro);
         var metadata = services.Credentials.ListMetadata(CredentialKeys.Required.Append(CredentialKeys.SshDeployKeyPassphrase));
         var proxmoxClient = new ProxmoxClient(services.Credentials);
         var proxmoxInspection = await proxmoxClient.CheckInspectionAccessAsync();
@@ -70,9 +73,10 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
             services.Config.Proxmox.ImageStorage,
             services.Config.Proxmox.Features.CloudImageDownloads);
         var proxmoxReady = proxmoxInspection.AllAllowed && proxmoxTerraform.AllAllowed;
+        var ready = proxmoxReady && terraform.ExitCode == 0 && wsl.ExitCode == 0 && ansibleStatus.Available;
         OutputWriter.Write(new
         {
-            status = proxmoxReady ? "ok" : "error",
+            status = ready ? "ok" : "error",
             config = new
             {
                 repo = services.Paths.RepoRoot,
@@ -84,7 +88,7 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
             {
                 terraform = new { available = terraform.ExitCode == 0, version = terraform.Stdout.Trim() },
                 wsl = new { available = wsl.ExitCode == 0, output = CleanToolOutput(wsl.Stdout), error = CleanToolOutput(wsl.Stderr) },
-                ansible = new { available = false, note = "Ansible runs through the configured WSL distro; no distro is installed until wsl -l -v succeeds." }
+                ansible = ansibleStatus
             },
             credentials = metadata,
             proxmox = new
@@ -93,8 +97,29 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
                 terraform = proxmoxTerraform
             }
         }, settings.Text);
-        return proxmoxReady ? 0 : 1;
+        return ready ? 0 : 1;
+    }
+
+    public static ProcessRequest BuildAnsibleProbe(string distro, string workingDirectory) =>
+        new(
+            "wsl.exe",
+            ["-d", distro, "--", "bash", "-lc", "export ANSIBLE_LOCAL_TEMP=/tmp/homeops-ansible; command -v ansible-playbook >/dev/null 2>&1 || exit 127; ansible-playbook --version"],
+            workingDirectory,
+            new Dictionary<string, string?>());
+
+    public static AnsibleToolStatus BuildAnsibleStatus(ProcessResult result, string distro)
+    {
+        const string install = "sudo apt-get update && sudo apt-get install -y ansible";
+        return result.ExitCode == 0
+            ? new AnsibleToolStatus(true, CleanToolOutput(result.Stdout).Split('\n', StringSplitOptions.TrimEntries)[0], string.Empty, null)
+            : new AnsibleToolStatus(
+                false,
+                string.Empty,
+                CleanToolOutput(result.Stderr),
+                result.ExitCode == 127 ? $"wsl.exe -d {distro} -- bash -lc \"{install}\"" : null);
     }
 
     private static string CleanToolOutput(string value) => value.Replace("\0", string.Empty).Trim();
 }
+
+public sealed record AnsibleToolStatus(bool Available, string Version, string Error, string? SetupCommand);
