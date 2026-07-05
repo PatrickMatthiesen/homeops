@@ -100,7 +100,15 @@ public sealed class TerraformRunner(AppServices services)
         var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment(includeSshPublicKey: true)));
         var redactedStdout = redactor.Redact(process.Stdout);
         var risk = RiskDetector.TerraformApply(redactedStdout, git.IsDirty, hasPlanArtifact);
-        var result = RunnerHelpers.ToCommandResult(process, redactor, "terraform.apply", target, risk, null, !yes);
+        var result = RunnerHelpers.ToCommandResult(
+            process,
+            redactor,
+            "terraform.apply",
+            target,
+            risk,
+            null,
+            !yes,
+            RunnerHelpers.SummarizeTerraformApply);
         var auditId = services.Audit.Write(RunnerHelpers.CreateAudit("terraform.apply", target, services.Paths.RepoRoot, git, result.ExitCode, risk, yes ? "--yes" : "none", result.Summary));
         return result with { AuditEventId = auditId };
     }

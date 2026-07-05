@@ -105,6 +105,33 @@ public static class RunnerHelpers
             : string.Join(Environment.NewLine, details.Prepend(summary));
     }
 
+    public static string SummarizeTerraformApply(string stdout, string stderr, int exitCode)
+    {
+        var fallback = Summarize(stdout, stderr, exitCode);
+        var source = StripAnsi(!string.IsNullOrWhiteSpace(stdout) ? stdout : stderr);
+        var lines = source.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length == 0)
+        {
+            return fallback;
+        }
+
+        var summary = lines.FirstOrDefault(line => line.StartsWith("Apply complete!", StringComparison.Ordinal));
+        if (summary is null)
+        {
+            return fallback;
+        }
+
+        var details = new List<string> { summary };
+        var outputsIndex = Array.FindIndex(lines, line => line.Equals("Outputs:", StringComparison.Ordinal));
+        if (outputsIndex >= 0)
+        {
+            details.Add("Outputs:");
+            details.AddRange(lines.Skip(outputsIndex + 1).Where(line => line.Contains(" = ", StringComparison.Ordinal)));
+        }
+
+        return string.Join(Environment.NewLine, details);
+    }
+
     private static string Summarize(string stdout, string stderr, int exitCode)
     {
         var source = !string.IsNullOrWhiteSpace(stdout) ? stdout : stderr;

@@ -152,6 +152,44 @@ public sealed class TerraformRunnerTests
         }
     }
 
+    [Fact]
+    public async Task ApplySummaryStripsAnsiAndHighlightsCompletion()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "web-panel");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner
+            {
+                Output = "\u001b[0m\u001b[1m\u001b[32mApply complete! Resources: 0 added, 1 changed, 0 destroyed.\u001b[0m\n\n\u001b[0m\u001b[1m\u001b[32mOutputs:\u001b[0m\npanel_command = \"homeops ansible apply web-panel --limit web-panel.example\"\npanel_vm_id = 112\npanel_vm_ip = \"192.168.1.178\"\n"
+            };
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            var result = await new TerraformRunner(services).ApplyAsync("web-panel", planId: null, yes: true);
+
+            Assert.Equal(
+                """
+                Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+                Outputs:
+                panel_command = "homeops ansible apply web-panel --limit web-panel.example"
+                panel_vm_id = 112
+                panel_vm_ip = "192.168.1.178"
+                """.ReplaceLineEndings(),
+                result.Summary.ReplaceLineEndings());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class TerraformCredentialStore(string deployKeyPath) : ICredentialStore
     {
         public string? Get(string name) => name switch
