@@ -20,7 +20,7 @@ public sealed class TerraformRunner(AppServices services)
     public async Task<CommandResult> ValidateAsync(string target)
     {
         var targetPath = services.Paths.ResolveTerraformTarget(target);
-        return await RunAsync([$"-chdir={targetPath}", "validate"], "terraform.validate", target, "normal", "none");
+        return await RunAsync([$"-chdir={targetPath}", "validate", "-no-color"], "terraform.validate", target, "normal", "none");
     }
 
     public async Task<CommandResult> PlanAsync(string target, bool json, bool writePlan)
@@ -31,6 +31,10 @@ public sealed class TerraformRunner(AppServices services)
         if (json)
         {
             args.Add("-json");
+        }
+        else
+        {
+            args.Add("-no-color");
         }
 
         if (writePlan)
@@ -72,7 +76,7 @@ public sealed class TerraformRunner(AppServices services)
         var targetPath = services.Paths.ResolveTerraformTarget(target);
         var git = await services.Git.SnapshotAsync(services.Paths.RepoRoot);
         var redactor = RunnerHelpers.BuildRedactor(services.Credentials);
-        var args = new List<string> { $"-chdir={targetPath}", "apply", "-input=false" };
+        var args = new List<string> { $"-chdir={targetPath}", "apply", "-input=false", "-no-color" };
         var hasPlanArtifact = !string.IsNullOrWhiteSpace(planId);
         if (!yes && !hasPlanArtifact)
         {

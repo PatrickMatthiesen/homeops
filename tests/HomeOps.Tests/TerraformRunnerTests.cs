@@ -32,6 +32,62 @@ public sealed class TerraformRunnerTests
             Assert.Equal(0, result.ExitCode);
             var terraform = Assert.Single(processes.Requests, request => request.FileName == "terraform");
             Assert.Equal(publicKey, terraform.Environment["TF_VAR_ssh_public_key"]);
+            Assert.Contains("-no-color", terraform.Arguments);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task PlanJsonDoesNotAddNoColor()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "demo-app");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner();
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            await new TerraformRunner(services).PlanAsync("demo-app", json: true, writePlan: false);
+
+            var terraform = Assert.Single(processes.Requests, request => request.FileName == "terraform");
+            Assert.Contains("-json", terraform.Arguments);
+            Assert.DoesNotContain("-no-color", terraform.Arguments);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ValidateDisablesColor()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "demo-app");
+        Directory.CreateDirectory(target);
+
+        try
+        {
+            var processes = new CapturingProcessRunner();
+            var credentials = new TerraformCredentialStore(Path.Combine(root, "deploy-key"));
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            await new TerraformRunner(services).ValidateAsync("demo-app");
+
+            var terraform = Assert.Single(processes.Requests, request => request.FileName == "terraform");
+            Assert.Contains("-no-color", terraform.Arguments);
         }
         finally
         {
@@ -174,6 +230,8 @@ public sealed class TerraformRunnerTests
 
             var result = await new TerraformRunner(services).ApplyAsync("web-panel", planId: null, yes: true);
 
+            var terraform = Assert.Single(processes.Requests, request => request.FileName == "terraform");
+            Assert.Contains("-no-color", terraform.Arguments);
             Assert.Equal(
                 """
                 Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
