@@ -54,6 +54,8 @@ homeops login
 Credentials are stored in Windows Credential Manager under internal `homeops:*`
 keys. The CLI never implements `secret get`, `env`, `shell`, or arbitrary
 `exec`, because those would turn the tool into a credential extraction path.
+The Ansible become password is optional; leave it empty unless playbooks need
+sudo-style privilege escalation.
 
 ## Terraform
 
@@ -86,7 +88,10 @@ homeops doctor
 ```
 
 When running Ansible, `homeops` writes the vault password to a temporary file,
-passes that file only to the child process, and deletes it in cleanup.
+passes that file only to the child process, and deletes it in cleanup. For
+playbooks that need privilege escalation, add `--become`; `homeops` stages the
+optional `ansible.become_password` credential the same way and passes it to
+Ansible as a become password file.
 
 Edit the configured encrypted vault safely across the Windows/WSL boundary:
 
@@ -108,6 +113,8 @@ The CLI defaults to JSON for agents:
 homeops proxmox nodes
 homeops terraform plan project-vm --out
 homeops ansible check site.yml --limit new-vm
+homeops ansible check site.yml --limit new-vm --become
+homeops ansible apply site.yml --limit new-vm --become --yes
 ```
 
 Use `--text` for compact human output.

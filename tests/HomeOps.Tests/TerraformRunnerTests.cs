@@ -68,6 +68,90 @@ public sealed class TerraformRunnerTests
         }
     }
 
+    [Fact]
+    public async Task PlanSummaryHighlightsActionsAndChangedValues()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "web-panel");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner
+            {
+                Output = """
+                    Terraform will perform the following actions:
+
+                      # proxmox_virtual_environment_vm.panel will be updated in-place
+                      ~ resource "proxmox_virtual_environment_vm" "panel" {
+                            id = "112"
+                            # (33 unchanged attributes hidden)
+
+                          ~ memory {
+                              ~ dedicated      = 4096 -> 3072
+                                # (4 unchanged attributes hidden)
+                            }
+                        }
+
+                    Plan: 0 to add, 1 to change, 0 to destroy.
+                    """
+            };
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            var result = await new TerraformRunner(services).PlanAsync("web-panel", json: false, writePlan: false);
+
+            Assert.Equal(
+                """
+                Plan: 0 to add, 1 to change, 0 to destroy.
+                proxmox_virtual_environment_vm.panel: updated in-place
+                dedicated: 4096 -> 3072
+                Plan not saved. Re-run with --out before apply to guarantee the exact actions.
+                """.ReplaceLineEndings(),
+                result.Summary.ReplaceLineEndings());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task PlanSummaryIncludesSavedPlanIdWhenOutIsUsed()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "web-panel");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner
+            {
+                Output = "Plan: 0 to add, 1 to change, 0 to destroy."
+            };
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            var result = await new TerraformRunner(services).PlanAsync("web-panel", json: false, writePlan: true);
+
+            Assert.Contains("planId=", result.Subject);
+            Assert.Contains("Saved plan: ", result.Summary);
+            Assert.Contains(result.Subject.Split("planId=", StringSplitOptions.None)[1], result.Summary);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class TerraformCredentialStore(string deployKeyPath) : ICredentialStore
     {
         public string? Get(string name) => name switch
@@ -87,11 +171,12 @@ public sealed class TerraformRunnerTests
     private sealed class CapturingProcessRunner : IProcessRunner
     {
         public List<ProcessRequest> Requests { get; } = [];
+        public string Output { get; init; } = string.Empty;
 
         public Task<ProcessResult> RunAsync(ProcessRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
-            return Task.FromResult(new ProcessResult(0, string.Empty, string.Empty));
+            return Task.FromResult(new ProcessResult(0, Output, string.Empty));
         }
 
         public Task<int> RunInteractiveAsync(InteractiveProcessRequest request, CancellationToken cancellationToken = default) =>

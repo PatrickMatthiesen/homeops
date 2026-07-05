@@ -40,10 +40,28 @@ public sealed class TerraformRunner(AppServices services)
             args.Add($"-out={Path.Combine(services.Paths.PlanArtifactDir, planId + ".tfplan")}");
         }
 
-        var result = await RunAsync(args, "terraform.plan", target, "normal", "none", includeSshPublicKey: true);
+        var result = await RunAsync(
+            args,
+            "terraform.plan",
+            target,
+            "normal",
+            "none",
+            includeSshPublicKey: true,
+            summarize: RunnerHelpers.SummarizeTerraformPlan);
         if (planId is not null)
         {
-            result = result with { Subject = $"{target} planId={planId}" };
+            result = result with
+            {
+                Subject = $"{target} planId={planId}",
+                Summary = AppendSummaryLine(result.Summary, $"Saved plan: {planId}")
+            };
+        }
+        else if (result.ExitCode == 0 && !json)
+        {
+            result = result with
+            {
+                Summary = AppendSummaryLine(result.Summary, "Plan not saved. Re-run with --out before apply to guarantee the exact actions.")
+            };
         }
 
         return result;
@@ -93,12 +111,13 @@ public sealed class TerraformRunner(AppServices services)
         string subject,
         string risk,
         string confirmationMode,
-        bool includeSshPublicKey = false)
+        bool includeSshPublicKey = false,
+        Func<string, string, int, string>? summarize = null)
     {
         var git = await services.Git.SnapshotAsync(services.Paths.RepoRoot);
         var redactor = RunnerHelpers.BuildRedactor(services.Credentials);
         var process = await services.Processes.RunAsync(new("terraform", args, services.Paths.RepoRoot, TerraformEnvironment(includeSshPublicKey)));
-        var result = RunnerHelpers.ToCommandResult(process, redactor, category, subject, risk, null);
+        var result = RunnerHelpers.ToCommandResult(process, redactor, category, subject, risk, null, summarize: summarize);
         var auditId = services.Audit.Write(RunnerHelpers.CreateAudit(category, subject, services.Paths.RepoRoot, git, result.ExitCode, risk, confirmationMode, result.Summary));
         return result with { AuditEventId = auditId };
     }
@@ -184,4 +203,9 @@ public sealed class TerraformRunner(AppServices services)
     {
         return string.Concat(value.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')).Trim('-');
     }
+
+    private static string AppendSummaryLine(string summary, string line) =>
+        string.IsNullOrWhiteSpace(summary)
+            ? line
+            : string.Join(Environment.NewLine, summary, line);
 }

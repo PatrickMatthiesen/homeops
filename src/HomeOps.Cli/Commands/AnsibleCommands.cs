@@ -5,7 +5,7 @@ using Spectre.Console.Cli;
 
 namespace HomeOps.Cli.Commands;
 
-public sealed class AnsibleApplySettings : PlaybookSettings
+public sealed class AnsibleApplySettings : PrivilegedPlaybookSettings
 {
     [CommandOption("--yes")]
     [Description("Allow apply to proceed in agent workflows and record risk in audit output.")]
@@ -22,11 +22,11 @@ public sealed class AnsibleSyntaxCommand : AsyncCommand<PlaybookSettings>
     }
 }
 
-public sealed class AnsibleCheckCommand : AsyncCommand<PlaybookSettings>
+public sealed class AnsibleCheckCommand : AsyncCommand<PrivilegedPlaybookSettings>
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, PlaybookSettings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, PrivilegedPlaybookSettings settings)
     {
-        var result = await new AnsibleRunner(AppServices.Create()).CheckAsync(settings.Playbook, settings.Limit);
+        var result = await new AnsibleRunner(AppServices.Create()).CheckAsync(settings.Playbook, settings.Limit, settings.Become);
         OutputWriter.Write(result, settings.Text);
         return result.ExitCode;
     }
@@ -36,7 +36,7 @@ public sealed class AnsibleApplyCommand : AsyncCommand<AnsibleApplySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, AnsibleApplySettings settings)
     {
-        var result = await new AnsibleRunner(AppServices.Create()).ApplyAsync(settings.Playbook, settings.Limit, settings.Yes);
+        var result = await new AnsibleRunner(AppServices.Create()).ApplyAsync(settings.Playbook, settings.Limit, settings.Become, settings.Yes);
         OutputWriter.Write(result, settings.Text);
         return result.ExitCode;
     }

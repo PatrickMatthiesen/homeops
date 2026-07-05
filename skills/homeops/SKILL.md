@@ -74,12 +74,14 @@ Guidelines:
 
 ## Ansible Workflow
 
-Use Ansible through `homeops`, which runs `ansible-playbook` in the configured WSL distro and manages the vault password temp file:
+Use Ansible through `homeops`, which runs `ansible-playbook` in the configured WSL distro and manages the vault and optional become password temp files:
 
 ```powershell
 homeops ansible syntax <playbook>
 homeops ansible check <playbook> --limit <host-or-group>
+homeops ansible check <playbook> --limit <host-or-group> --become
 homeops ansible apply <playbook> --limit <host-or-group> --yes
+homeops ansible apply <playbook> --limit <host-or-group> --become --yes
 homeops ansible vault edit
 ```
 
@@ -87,6 +89,9 @@ Guidelines:
 
 - Prefer `syntax` then `check` before `apply`.
 - Use `--limit` for targeted fixes unless the user explicitly wants a broad run.
+- Use `--become` only when the playbook needs privilege escalation. If it fails
+  because `ansible.become_password` is missing, tell the user to run
+  `homeops login` from a trusted local shell.
 - If WSL or Ansible is unavailable, use `homeops doctor` and report the setup gap.
 - Do not run raw `ansible-playbook` for credential-backed playbooks.
 - Use `homeops ansible vault edit` for interactive edits to the configured

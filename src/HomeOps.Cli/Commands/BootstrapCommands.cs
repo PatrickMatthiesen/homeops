@@ -16,6 +16,12 @@ public sealed class LoginCommand : Command<CommonSettings>
         store.Set(CredentialKeys.ProxmoxInspectToken, Secret("Proxmox read-only API token (user@realm!tokenid=secret)"));
         store.Set(CredentialKeys.ProxmoxTerraformToken, Secret("Proxmox Terraform API token (user@realm!tokenid=secret)"));
         store.Set(CredentialKeys.AnsibleVaultPassword, Secret("Ansible vault password"));
+        var becomePassword = Secret("Ansible become password (empty allowed)", allowEmpty: true);
+        if (!string.IsNullOrEmpty(becomePassword))
+        {
+            store.Set(CredentialKeys.AnsibleBecomePassword, becomePassword);
+        }
+
         store.Set(CredentialKeys.SshDeployKeyPath, Prompt("SSH deploy key path"));
         var passphrase = Secret("SSH deploy key passphrase (empty allowed)", allowEmpty: true);
         if (!string.IsNullOrEmpty(passphrase))
@@ -46,7 +52,7 @@ public sealed class LogoutCommand : Command<CommonSettings>
     public override int Execute(CommandContext context, CommonSettings settings)
     {
         var store = new WindowsCredentialStore();
-        foreach (var key in CredentialKeys.Required.Append(CredentialKeys.SshDeployKeyPassphrase))
+        foreach (var key in CredentialKeys.Required.Concat(CredentialKeys.Optional))
         {
             store.Delete(key);
         }
@@ -65,7 +71,7 @@ public sealed class DoctorCommand : AsyncCommand<CommonSettings>
         var wsl = await services.Processes.RunAsync(new("wsl.exe", ["-l", "-v"], services.Paths.RepoRoot, new Dictionary<string, string?>()));
         var ansible = await services.Processes.RunAsync(BuildAnsibleProbe(services.Config.Ansible.WslDistro, services.Paths.RepoRoot));
         var ansibleStatus = BuildAnsibleStatus(ansible, services.Config.Ansible.WslDistro);
-        var metadata = services.Credentials.ListMetadata(CredentialKeys.Required.Append(CredentialKeys.SshDeployKeyPassphrase));
+        var metadata = services.Credentials.ListMetadata(CredentialKeys.Required.Concat(CredentialKeys.Optional));
         var proxmoxClient = new ProxmoxClient(services.Credentials);
         var proxmoxInspection = await proxmoxClient.CheckInspectionAccessAsync();
         var proxmoxTerraform = await proxmoxClient.CheckTerraformAccessAsync(

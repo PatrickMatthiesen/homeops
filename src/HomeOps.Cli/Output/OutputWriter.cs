@@ -15,7 +15,7 @@ public static class OutputWriter
     {
         if (!text)
         {
-            Console.WriteLine(JsonSerializer.Serialize(value, JsonOptions));
+            Console.WriteLine(JsonSerializer.Serialize(ToJsonValue(value), JsonOptions));
             return;
         }
 
@@ -32,6 +32,25 @@ public static class OutputWriter
         }
 
         AnsiConsole.WriteLine(JsonSerializer.Serialize(value, JsonOptions));
+    }
+
+    private static object ToJsonValue(object value)
+    {
+        if (value is not CommandResult result || result.ExitCode != 0)
+        {
+            return value;
+        }
+
+        return new
+        {
+            result.ExitCode,
+            result.CommandCategory,
+            result.Subject,
+            result.RiskLevel,
+            result.ConfirmationRequired,
+            result.Summary,
+            result.AuditEventId
+        };
     }
 }
 

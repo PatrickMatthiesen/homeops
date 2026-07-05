@@ -24,3 +24,10 @@ public class PlaybookSettings : CommonSettings
     [CommandOption("--limit")]
     public string? Limit { get; init; }
 }
+
+public class PrivilegedPlaybookSettings : PlaybookSettings
+{
+    [CommandOption("--become")]
+    [Description("Run Ansible with privilege escalation using the brokered ansible.become_password credential.")]
+    public bool Become { get; init; }
+}
