@@ -190,6 +190,72 @@ public sealed class TerraformRunnerTests
         }
     }
 
+    [Fact]
+    public async Task PlanFailureSummaryPrefersStderrOverCustomSummary()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "web-panel");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner
+            {
+                ExitCode = 1,
+                Output = "Plan: 0 to add, 1 to change, 0 to destroy.",
+                Error = "Error: provider configuration failed"
+            };
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            var result = await new TerraformRunner(services).PlanAsync("web-panel", json: false, writePlan: false);
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.Equal("Error: provider configuration failed", result.Summary);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyFailureSummaryPrefersStderrOverCustomSummary()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "terraform", "web-panel");
+        Directory.CreateDirectory(target);
+        var privateKeyPath = Path.Combine(root, "deploy-key");
+        await File.WriteAllTextAsync(privateKeyPath + ".pub", "ssh-ed25519 AQID synthetic@test");
+
+        try
+        {
+            var processes = new CapturingProcessRunner
+            {
+                ExitCode = 1,
+                Output = "Apply complete! Resources: 0 added, 1 changed, 0 destroyed.",
+                Error = "Error: apply failed after partial diagnostics"
+            };
+            var credentials = new TerraformCredentialStore(privateKeyPath);
+            var config = new HomeOpsConfig { InfrastructureRepo = root };
+            var paths = new PathResolver(config);
+            var services = new AppServices(config, paths, credentials, processes, new GitInfo(processes), new AuditWriter(paths));
+
+            var result = await new TerraformRunner(services).ApplyAsync("web-panel", planId: null, yes: true);
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.Equal("Error: apply failed after partial diagnostics", result.Summary);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class TerraformCredentialStore(string deployKeyPath) : ICredentialStore
     {
         public string? Get(string name) => name switch
@@ -209,12 +275,14 @@ public sealed class TerraformRunnerTests
     private sealed class CapturingProcessRunner : IProcessRunner
     {
         public List<ProcessRequest> Requests { get; } = [];
+        public int ExitCode { get; init; }
         public string Output { get; init; } = string.Empty;
+        public string Error { get; init; } = string.Empty;
 
         public Task<ProcessResult> RunAsync(ProcessRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
-            return Task.FromResult(new ProcessResult(0, Output, string.Empty));
+            return Task.FromResult(new ProcessResult(ExitCode, Output, Error));
         }
 
         public Task<int> RunInteractiveAsync(InteractiveProcessRequest request, CancellationToken cancellationToken = default) =>

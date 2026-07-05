@@ -28,7 +28,9 @@ public static class RunnerHelpers
     {
         var stdout = redactor.Redact(process.Stdout);
         var stderr = redactor.Redact(process.Stderr);
-        var summary = summarize?.Invoke(stdout, stderr, process.ExitCode) ?? Summarize(stdout, stderr, process.ExitCode);
+        var summary = process.ExitCode == 0 && summarize is not null
+            ? summarize(stdout, stderr, process.ExitCode)
+            : Summarize(stdout, stderr, process.ExitCode);
         return new CommandResult(process.ExitCode, category, subject, risk, confirmationRequired, summary, stdout, stderr, auditEventId);
     }
 
@@ -134,7 +136,7 @@ public static class RunnerHelpers
 
     private static string Summarize(string stdout, string stderr, int exitCode)
     {
-        var source = !string.IsNullOrWhiteSpace(stdout) ? stdout : stderr;
+        var source = exitCode == 0 || string.IsNullOrWhiteSpace(stderr) ? stdout : stderr;
         var lines = source.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (lines.Length == 0)
         {
