@@ -10,6 +10,13 @@ public class CommonSettings : CommandSettings
     public bool Text { get; init; }
 }
 
+public sealed class LoginSettings : CommonSettings
+{
+    [CommandOption("-i|--interactive")]
+    [Description("Choose which existing login settings to update. A new login still prompts for every setting.")]
+    public bool Interactive { get; init; }
+}
+
 public class TargetSettings : CommonSettings
 {
     [CommandArgument(0, "<target>")]

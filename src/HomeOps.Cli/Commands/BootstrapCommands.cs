@@ -7,31 +7,58 @@ using Spectre.Console.Cli;
 
 namespace HomeOps.Cli.Commands;
 
-public sealed class LoginCommand : Command<CommonSettings>
+public sealed class LoginCommand : Command<LoginSettings>
 {
-    public override int Execute(CommandContext context, CommonSettings settings)
+    private static readonly LoginSetting[] LoginSettings =
+    [
+        new(CredentialKeys.ProxmoxEndpoint, "Proxmox endpoint", false, false),
+        new(CredentialKeys.ProxmoxInspectToken, "Proxmox read-only API token (user@realm!tokenid=secret)", true, false),
+        new(CredentialKeys.ProxmoxTerraformToken, "Proxmox Terraform API token (user@realm!tokenid=secret)", true, false),
+        new(CredentialKeys.AnsibleVaultPassword, "Ansible vault password", true, false),
+        new(CredentialKeys.AnsibleBecomePassword, "Ansible become password (empty allowed)", true, true),
+        new(CredentialKeys.SshDeployKeyPath, "SSH deploy key path", false, false),
+        new(CredentialKeys.SshDeployKeyPassphrase, "SSH deploy key passphrase (empty allowed)", true, true)
+    ];
+
+    public override int Execute(CommandContext context, LoginSettings settings)
     {
         var store = new WindowsCredentialStore();
-        store.Set(CredentialKeys.ProxmoxEndpoint, Prompt("Proxmox endpoint"));
-        store.Set(CredentialKeys.ProxmoxInspectToken, Secret("Proxmox read-only API token (user@realm!tokenid=secret)"));
-        store.Set(CredentialKeys.ProxmoxTerraformToken, Secret("Proxmox Terraform API token (user@realm!tokenid=secret)"));
-        store.Set(CredentialKeys.AnsibleVaultPassword, Secret("Ansible vault password"));
-        var becomePassword = Secret("Ansible become password (empty allowed)", allowEmpty: true);
-        if (!string.IsNullOrEmpty(becomePassword))
-        {
-            store.Set(CredentialKeys.AnsibleBecomePassword, becomePassword);
-        }
+        var metadata = store.ListMetadata(LoginSettings.Select(setting => setting.Key));
+        var selectedSettings = ShouldPromptForSelection(settings.Interactive, metadata)
+            ? SelectSettings(metadata)
+            : LoginSettings;
 
-        store.Set(CredentialKeys.SshDeployKeyPath, Prompt("SSH deploy key path"));
-        var passphrase = Secret("SSH deploy key passphrase (empty allowed)", allowEmpty: true);
-        if (!string.IsNullOrEmpty(passphrase))
+        foreach (var setting in selectedSettings)
         {
-            store.Set(CredentialKeys.SshDeployKeyPassphrase, passphrase);
+            var value = setting.IsSecret
+                ? Secret(setting.Label, setting.AllowEmpty)
+                : Prompt(setting.Label);
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                store.Set(setting.Key, value);
+            }
         }
 
         OutputWriter.Write(new { status = "ok", message = "Credentials stored in Windows Credential Manager." }, settings.Text);
         return 0;
     }
+
+    public static bool ShouldPromptForSelection(bool interactive, IReadOnlyDictionary<string, bool> metadata) =>
+        interactive && metadata.Values.Any(configured => configured);
+
+    public static string ConfigurationStatus(bool configured) =>
+        configured ? "[green](set)[/]" : "[yellow](not set)[/]";
+
+    private static IReadOnlyList<LoginSetting> SelectSettings(IReadOnlyDictionary<string, bool> metadata) =>
+        AnsiConsole.Prompt(
+            new MultiSelectionPrompt<LoginSetting>()
+                .Title("Which login settings do you want to update?")
+                .PageSize(LoginSettings.Length)
+                .MoreChoicesText("[grey](Move up and down to reveal more settings)[/]")
+                .InstructionsText("[grey](Press [blue]<space>[/] to toggle a setting, then [green]<enter>[/] to accept)[/]")
+                .UseConverter(setting => $"{Markup.Escape(setting.Label)} {ConfigurationStatus(metadata[setting.Key])}")
+                .AddChoices(LoginSettings));
 
     private static string Prompt(string label) => AnsiConsole.Ask<string>($"{label}:");
 
@@ -45,6 +72,8 @@ public sealed class LoginCommand : Command<CommonSettings>
 
         return AnsiConsole.Prompt(prompt);
     }
+
+    private sealed record LoginSetting(string Key, string Label, bool IsSecret, bool AllowEmpty);
 }
 
 public sealed class LogoutCommand : Command<CommonSettings>

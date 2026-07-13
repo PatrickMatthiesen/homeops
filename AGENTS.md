@@ -38,6 +38,7 @@ Windows Credential Manager.
 ## Build and release
 
 Keep the version in `src/HomeOps.Cli/HomeOps.Cli.csproj` and `Program.cs` aligned.
+After making changes, run `dotnet test` and `dotnet publish` to publish to the users environment.
 For a local Windows release:
 
 ```powershell
